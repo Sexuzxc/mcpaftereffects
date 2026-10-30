@@ -1,0 +1,3945 @@
+{
+  "server": "after-effects-mcp",
+  "version": "1.0.0",
+  "bridge_version": 1,
+  "count": 95,
+  "tools": [
+    {
+      "name": "ping",
+      "title": "Ping the bridge",
+      "description": "Check that the After Effects bridge is alive and responding. Returns AE version, open project, bridge uptime and round-trip latency in ms. Use this first when unsure whether After Effects is reachable.",
+      "domain": "system",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "timeout_s": {
+            "type": "number",
+            "description": "Wait timeout in seconds (default 15)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "ae_info",
+      "title": "AE capabilities info",
+      "description": "Read-only environment report: AE version and build, bridge version, whether the security preference 'Allow Scripts to Write Files and Access Network' is on, number of open items, available AE features (saveFrameToPng, app.effects, app.fonts), and paths (bridge runtime dir, project file).",
+      "domain": "system",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_active_item",
+      "title": "Active item and selection",
+      "description": "Return the currently active item (comp or footage), selected layers in the active comp and selected properties. Useful to discover what the user is looking at before mutating anything.",
+      "domain": "system",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "menu_command",
+      "title": "Execute menu command",
+      "description": "Execute an After Effects menu command by numeric id (app.findMenuCommandId / app.executeCommand). Try name first ('Purge All Memory & Disk Cache'); the bridge falls back to the numeric id. Use for commands with no dedicated tool.",
+      "domain": "system",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Menu command name or numeric id."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "command"
+        ]
+      }
+    },
+    {
+      "name": "run_script",
+      "title": "Run ExtendScript",
+      "description": "Execute arbitrary ExtendScript code inside After Effects and return the serialized result. Wrap the value you want back in a return statement; the code runs inside (function(){ ... })() so 'return' is legal. Only plain JSON-safe values (numbers, strings, booleans, null, arrays, objects) are returned. DANGEROUS: gated behind AE_MCP_ENABLE_EVAL=1 on the MCP server.",
+      "domain": "system",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "ExtendScript source to evaluate."
+          },
+          "timeout_s": {
+            "type": "number",
+            "description": "Wait timeout in seconds (default 120)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "code"
+        ]
+      }
+    },
+    {
+      "name": "help_bridge",
+      "title": "Bridge help",
+      "description": "Return installation and troubleshooting instructions for the ae_bridge.jsx resident bridge (no After Effects round-trip, always available). Read this when ping fails to understand how to recover.",
+      "domain": "system",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_info",
+      "title": "Project info",
+      "description": "Full project overview: file path, dirty flag, bits per channel, time display type, item census by type, folder tree and the active item.",
+      "domain": "project",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "include_folders": {
+            "type": "boolean",
+            "description": "Include the folder tree (default true)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_list_items",
+      "title": "List project items",
+      "description": "List items in the project panel with id, name, type, folder, path and summary. Filter by type ('comp' | 'folder' | 'footage' | 'solid'), by name substring, or by parent folder id/name.",
+      "domain": "project",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Filter by item type.",
+            "enum": [
+              "comp",
+              "folder",
+              "footage",
+              "solid"
+            ]
+          },
+          "name_contains": {
+            "type": "string",
+            "description": "Case-insensitive substring filter on item name."
+          },
+          "folder": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Only items directly inside this folder (id or name; 'root' = project root)."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Max items to return (default 200)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_new",
+      "title": "New project",
+      "description": "Create a new empty project. If the current project has unsaved changes it is saved first (never discarded silently).",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "save_current": {
+            "type": "boolean",
+            "description": "Save the current project first if dirty (default true)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_open",
+      "title": "Open project",
+      "description": "Open an .aep project file. Missing-footage and save dialogs are suppressed by the bridge; missing footage is reported in the response.",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path to the .aep file."
+          },
+          "timeout_s": {
+            "type": "number",
+            "description": "Load timeout in seconds (default 180)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "project_save",
+      "title": "Save project",
+      "description": "Save the current project. With 'path' performs Save As (returns the new path); without it saves in place (errors if the project was never saved).",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute target path for Save As."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_close",
+      "title": "Close project",
+      "description": "Close the current project. By default unsaved changes are saved first; set save=false to discard them.",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "save": {
+            "type": "boolean",
+            "description": "Save changes before closing (default true)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_import_file",
+      "title": "Import footage",
+      "description": "Import a file into the project: image, video, audio, layered PSD/AI (set psd_mode to choose which layers), or an image sequence (set sequence=true and pass the first frame path). Returns the new footage item.",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Absolute path to the file (or first frame of a sequence)."
+          },
+          "sequence": {
+            "type": "boolean",
+            "description": "Import as an image sequence."
+          },
+          "psd_mode": {
+            "type": "string",
+            "description": "Layered file import mode.",
+            "enum": [
+              "footage",
+              "comp",
+              "comp_cropped",
+              "sequence_layers"
+            ]
+          },
+          "folder": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Project-panel folder to place the item in (id or name)."
+          },
+          "timeout_s": {
+            "type": "number",
+            "description": "Import timeout in seconds (default 120)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "project_consolidate",
+      "title": "Consolidate footage",
+      "description": "Merge duplicate footage items pointing at the same file (app.project.consolidateFootage). Returns the number of items removed.",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_remove_unused",
+      "title": "Remove unused footage",
+      "description": "Delete all footage items that are not used in any composition (app.project.removeUnusedFootage). Returns the number removed.",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "project_reduce",
+      "title": "Reduce project",
+      "description": "Reduce the project to only what is used by the given compositions (app.project.reduceProject). Everything unrelated is deleted - save first!",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keep_comps": {
+            "type": "array",
+            "description": "Comps to keep (names or ids); everything used by them stays.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "keep_comps"
+        ]
+      }
+    },
+    {
+      "name": "project_set_bit_depth",
+      "title": "Set color depth",
+      "description": "Set project bits per channel (8/16/32) via the Project Settings command.",
+      "domain": "project",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "bits": {
+            "type": "integer",
+            "description": "Bits per channel.",
+            "enum": [
+              8,
+              16,
+              32
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "bits"
+        ]
+      }
+    },
+    {
+      "name": "item_rename",
+      "title": "Rename item",
+      "description": "Rename any project item (comp, footage, folder) by id or current name.",
+      "domain": "items",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Item id or name."
+          },
+          "new_name": {
+            "type": "string",
+            "description": "New name."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "new_name"
+        ]
+      }
+    },
+    {
+      "name": "item_delete",
+      "title": "Delete item",
+      "description": "Delete a project item. Comps delete only themselves; footage in use may still be deleted (check usages first with project_list_items if unsure).",
+      "domain": "items",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Item id or name."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item"
+        ]
+      }
+    },
+    {
+      "name": "folder_create",
+      "title": "Create folder",
+      "description": "Create a folder in the project panel, optionally inside another folder.",
+      "domain": "items",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Folder name."
+          },
+          "parent": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Parent folder id or name (default: project root)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "item_move",
+      "title": "Move item to folder",
+      "description": "Move an item into a folder (or to the project root with folder='root').",
+      "domain": "items",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Item id or name."
+          },
+          "folder": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Target folder id or name, or 'root'."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "folder"
+        ]
+      }
+    },
+    {
+      "name": "comp_create",
+      "title": "Create composition",
+      "description": "Create a new composition. Returns its summary (id, name, size, duration, fps, background color).",
+      "domain": "comps",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Composition name (unique in project)."
+          },
+          "width": {
+            "type": "integer",
+            "description": "Width in pixels (default 1920)."
+          },
+          "height": {
+            "type": "integer",
+            "description": "Height in pixels (default 1080)."
+          },
+          "pixel_aspect": {
+            "type": "number",
+            "description": "Pixel aspect ratio (default 1.0)."
+          },
+          "duration": {
+            "type": "number",
+            "description": "Duration in seconds (default 5)."
+          },
+          "frame_rate": {
+            "type": "number",
+            "description": "Frames per second (default 30)."
+          },
+          "background_color": {
+            "type": "array",
+            "description": "Background color, RGB. Use 0-255 values (e.g. [10,20,30]) or 0-1 floats (all <=1).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "folder": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Project-panel folder to place the comp in (id or name)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "comp_list",
+      "title": "List compositions",
+      "description": "List every composition in the project with id, name, size, duration, fps and layer count.",
+      "domain": "comps",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "comp_info",
+      "title": "Composition details",
+      "description": "Detailed info about one composition: settings, work area, motion blur, markers, and a layer summary list (index, name, type, enabled, timing).",
+      "domain": "comps",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "include_layers": {
+            "type": "boolean",
+            "description": "Include the layer summary (default true)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "comp_set_settings",
+      "title": "Set composition settings",
+      "description": "Change composition settings: width/height (pair only), pixel aspect, duration, frame rate, background color, motion blur, shutter angle/phase, and the work area.",
+      "domain": "comps",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "width": {
+            "type": "integer",
+            "description": "New width in pixels."
+          },
+          "height": {
+            "type": "integer",
+            "description": "New height in pixels."
+          },
+          "pixel_aspect": {
+            "type": "number",
+            "description": "New pixel aspect ratio."
+          },
+          "duration": {
+            "type": "number",
+            "description": "New duration in seconds."
+          },
+          "frame_rate": {
+            "type": "number",
+            "description": "New frame rate."
+          },
+          "background_color": {
+            "type": "array",
+            "description": "Background color, RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "motion_blur": {
+            "type": "boolean",
+            "description": "Enable/disable motion blur."
+          },
+          "shutter_angle": {
+            "type": "number",
+            "description": "Motion blur shutter angle in degrees (1-720)."
+          },
+          "shutter_phase": {
+            "type": "number",
+            "description": "Motion blur shutter phase in degrees."
+          },
+          "work_area_start": {
+            "type": "number",
+            "description": "Work area start in seconds."
+          },
+          "work_area_duration": {
+            "type": "number",
+            "description": "Work area duration in seconds."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "comp_duplicate",
+      "title": "Duplicate composition",
+      "description": "Duplicate a composition. The duplicate gets '-copy' in its name unless new_name is given. Duplicate layers keep their sources (not shared).",
+      "domain": "comps",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "new_name": {
+            "type": "string",
+            "description": "Name for the duplicate."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "comp_delete",
+      "title": "Delete composition",
+      "description": "Delete a composition from the project.",
+      "domain": "comps",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "comp_precompose",
+      "title": "Pre-compose layers",
+      "description": "Pre-compose the given layers into a new composition (layer indices or names, 1-based). By default all attributes move (equivalent of 'Move all attributes').",
+      "domain": "comps",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layers": {
+            "type": "array",
+            "description": "Layers to precompose: 1-based indices or names.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the new precomp."
+          },
+          "move_all_attributes": {
+            "type": "boolean",
+            "description": "Move all attributes (default true)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "layers",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "layer_add_solid",
+      "title": "Add solid layer",
+      "description": "Add a solid to a composition. Set adjustment=true to create an adjustment layer instead (color is irrelevant then).",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Layer name."
+          },
+          "color": {
+            "type": "array",
+            "description": "Solid color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            },
+            "default": [
+              128,
+              128,
+              128
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "description": "Solid width in pixels (default: comp width)."
+          },
+          "height": {
+            "type": "integer",
+            "description": "Solid height in pixels (default: comp height)."
+          },
+          "adjustment": {
+            "type": "boolean",
+            "description": "Make it an adjustment layer."
+          },
+          "folder": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Project-panel folder for the solid item (id or name)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_add_null",
+      "title": "Add null layer",
+      "description": "Add a null object layer (100x100 by default) to a composition.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Layer name (default 'Null')."
+          },
+          "width": {
+            "type": "integer",
+            "description": "Null size in pixels (default 100)."
+          },
+          "height": {
+            "type": "integer",
+            "description": "Null size in pixels (default 100)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_add_text",
+      "title": "Add text layer",
+      "description": "Add a text layer with content and optional style. 'font' must be the PostScript font name (e.g. 'Montserrat-Bold'); use text_list_fonts to look it up. Supports box text with a fixed box size.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "text": {
+            "type": "string",
+            "description": "Text content (\\n for new lines)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Layer name (default: the text itself)."
+          },
+          "font": {
+            "type": "string",
+            "description": "PostScript font name."
+          },
+          "font_size": {
+            "type": "number",
+            "description": "Font size in pixels."
+          },
+          "fill_color": {
+            "type": "array",
+            "description": "Fill color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "stroke_color": {
+            "type": "array",
+            "description": "Stroke color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "stroke_width": {
+            "type": "number",
+            "description": "Stroke width in pixels (0 = no stroke)."
+          },
+          "tracking": {
+            "type": "number",
+            "description": "Character tracking."
+          },
+          "leading": {
+            "type": "number",
+            "description": "Line leading (0 = auto)."
+          },
+          "justification": {
+            "type": "string",
+            "description": "Paragraph justification.",
+            "enum": [
+              "left",
+              "center",
+              "right",
+              "full_justify",
+              "full_force"
+            ]
+          },
+          "box_text": {
+            "type": "boolean",
+            "description": "Create paragraph (box) text instead of point text."
+          },
+          "box_width": {
+            "type": "number",
+            "description": "Box text width in pixels (with box_text)."
+          },
+          "box_height": {
+            "type": "number",
+            "description": "Box text height in pixels (with box_text)."
+          },
+          "position": {
+            "type": "array",
+            "description": "Layer position [x, y] (or [x, y, z]).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "start_time": {
+            "type": "number",
+            "description": "Layer start time in seconds."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "layer_add_shape",
+      "title": "Add shape layer",
+      "description": "Add a shape layer with one shape group: rectangle, ellipse, star or polygon, with fill and optional stroke.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "shape_type": {
+            "type": "string",
+            "description": "Shape kind.",
+            "enum": [
+              "rect",
+              "ellipse",
+              "star",
+              "polygon"
+            ],
+            "default": "rect"
+          },
+          "name": {
+            "type": "string",
+            "description": "Layer name."
+          },
+          "size": {
+            "type": "array",
+            "description": "Shape size [width, height] in pixels (default [200,200]).",
+            "items": {
+              "type": "number"
+            },
+            "default": [
+              200,
+              200
+            ]
+          },
+          "position": {
+            "type": "array",
+            "description": "Layer position [x, y] (default comp center).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "roundness": {
+            "type": "number",
+            "description": "Rectangle corner roundness in pixels."
+          },
+          "points": {
+            "type": "integer",
+            "description": "Star/polygon point count (default 5)."
+          },
+          "outer_radius": {
+            "type": "number",
+            "description": "Star/polygon outer radius (overrides size height/2)."
+          },
+          "inner_radius": {
+            "type": "number",
+            "description": "Star inner radius (star only)."
+          },
+          "fill_color": {
+            "type": "array",
+            "description": "Fill color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "fill_opacity": {
+            "type": "number",
+            "description": "Fill opacity percent 0-100 (default 100)."
+          },
+          "stroke_color": {
+            "type": "array",
+            "description": "Stroke color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "stroke_width": {
+            "type": "number",
+            "description": "Stroke width in pixels (0 = no stroke, default 0)."
+          },
+          "start_time": {
+            "type": "number",
+            "description": "Layer start time in seconds."
+          },
+          "three_d": {
+            "type": "boolean",
+            "description": "Make the layer 3D."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "shape_type"
+        ]
+      }
+    },
+    {
+      "name": "layer_add_camera",
+      "title": "Add camera layer",
+      "description": "Add a camera to a composition and return its layer info. Point of interest defaults to comp center when two_node is used.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Camera name."
+          },
+          "position": {
+            "type": "array",
+            "description": "Camera position [x, y, z] (default centered, -comp height).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "point_of_interest": {
+            "type": "array",
+            "description": "Point of interest [x, y, z] (two-node cameras).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "zoom": {
+            "type": "number",
+            "description": "Zoom in pixels (default 1400)."
+          },
+          "two_node": {
+            "type": "boolean",
+            "description": "Two-node camera driven by Point of Interest."
+          },
+          "depth_of_field": {
+            "type": "boolean",
+            "description": "Enable depth of field."
+          },
+          "focus_distance": {
+            "type": "number",
+            "description": "Focus distance in pixels."
+          },
+          "aperture": {
+            "type": "number",
+            "description": "Aperture in pixels."
+          },
+          "blur_level": {
+            "type": "number",
+            "description": "DOF blur level percent (default 100)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_add_light",
+      "title": "Add light layer",
+      "description": "Add a light to a composition: point, spot, parallel or ambient.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "name": {
+            "type": "string",
+            "description": "Light name."
+          },
+          "light_type": {
+            "type": "string",
+            "description": "Light kind.",
+            "enum": [
+              "point",
+              "spot",
+              "parallel",
+              "ambient"
+            ],
+            "default": "point"
+          },
+          "color": {
+            "type": "array",
+            "description": "Light color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "intensity": {
+            "type": "number",
+            "description": "Intensity percent (default 100)."
+          },
+          "position": {
+            "type": "array",
+            "description": "Position [x, y, z] (default comp center).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "falloff": {
+            "type": "number",
+            "description": "Falloff radius in pixels (spot/point)."
+          },
+          "casts_shadows": {
+            "type": "boolean",
+            "description": "Casts shadows."
+          },
+          "shadow_darkness": {
+            "type": "number",
+            "description": "Shadow darkness percent."
+          },
+          "shadow_diffusion": {
+            "type": "number",
+            "description": "Shadow diffusion in pixels."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_add_footage",
+      "title": "Add footage layer",
+      "description": "Add an existing project item (footage, solid, or another comp) as a layer into a composition.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Project item id or name to add as a layer."
+          },
+          "position": {
+            "type": "array",
+            "description": "Layer position [x, y] (default comp center).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "start_time": {
+            "type": "number",
+            "description": "Layer start time in seconds."
+          },
+          "fit_to_comp": {
+            "type": "boolean",
+            "description": "Scale the layer to fit the comp frame."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_duplicate",
+      "title": "Duplicate layer",
+      "description": "Duplicate a layer; the copy sits directly above the original. Optionally rename it and offset its start time.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "new_name": {
+            "type": "string",
+            "description": "Name for the duplicate."
+          },
+          "shift_s": {
+            "type": "number",
+            "description": "Shift the duplicate start time by this many seconds."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_delete",
+      "title": "Delete layer",
+      "description": "Delete one or more layers from a composition.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": "array",
+            "description": "Layers to delete: 1-based indices or names.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "layer"
+        ]
+      }
+    },
+    {
+      "name": "layer_list",
+      "title": "List layers",
+      "description": "List layers of a composition: index, name, type, enabled/solo/lock/shy, 3D flag, parent, timing (start/in/out), label color.",
+      "domain": "layers",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "only_matching_type": {
+            "type": "string",
+            "description": "Return only layers of this type.",
+            "enum": [
+              "text",
+              "shape",
+              "solid",
+              "null",
+              "camera",
+              "light",
+              "footage",
+              "adjustment",
+              "audio"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_info",
+      "title": "Layer details",
+      "description": "Everything about one layer: type, source dimensions/fps, transform values, flags, timing, parenting, effects list (with matchNames), masks summary, markers, text document, keyframe counts per animated property.",
+      "domain": "layers",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_set_flags",
+      "title": "Set layer flags",
+      "description": "Toggle layer flags: enabled, solo, shy, locked, three_d (3D layer), guide, audio_enabled, motion_blur, adjustment, auto_orient, environment_layer.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "Video/eye switch."
+          },
+          "solo": {
+            "type": "boolean",
+            "description": "Solo switch."
+          },
+          "shy": {
+            "type": "boolean",
+            "description": "Shy switch."
+          },
+          "locked": {
+            "type": "boolean",
+            "description": "Lock switch."
+          },
+          "three_d": {
+            "type": "boolean",
+            "description": "3D layer."
+          },
+          "guide": {
+            "type": "boolean",
+            "description": "Guide layer."
+          },
+          "audio_enabled": {
+            "type": "boolean",
+            "description": "Audio switch."
+          },
+          "motion_blur": {
+            "type": "boolean",
+            "description": "Per-layer motion blur."
+          },
+          "adjustment": {
+            "type": "boolean",
+            "description": "Adjustment layer (only valid for solids)."
+          },
+          "auto_orient": {
+            "type": "string",
+            "description": "Auto-orient mode.",
+            "enum": [
+              "none",
+              "along_path",
+              "toward_poi",
+              "each_frame"
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_set_parent",
+      "title": "Set layer parent",
+      "description": "Parent/unparent a layer. keep_transform=true adjusts the child transform so the layer does not jump (pick-whip style parenting).",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "parent": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Parent layer 1-based index or name, or 'none' to unparent."
+          },
+          "keep_transform": {
+            "type": "boolean",
+            "description": "Adjust child transform so nothing jumps (default true)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_reorder",
+      "title": "Reorder layer",
+      "description": "Move a layer within the stacking order: to top/bottom, before/after another layer, or to a specific index.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "where": {
+            "type": "string",
+            "description": "Where to move it.",
+            "enum": [
+              "top",
+              "bottom",
+              "before",
+              "after",
+              "index"
+            ],
+            "default": "top"
+          },
+          "reference": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Reference layer for before/after."
+          },
+          "index": {
+            "type": "integer",
+            "description": "Target 1-based index for where=index."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_trim",
+      "title": "Trim layer",
+      "description": "Set a layer's in/out points and/or start time. All values are seconds in comp time.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "in_point": {
+            "type": "number",
+            "description": "New in point in seconds."
+          },
+          "out_point": {
+            "type": "number",
+            "description": "New out point in seconds."
+          },
+          "start_time": {
+            "type": "number",
+            "description": "New start time in seconds."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_split",
+      "title": "Split layer",
+      "description": "Split a layer at a given comp time (like Edit > Split Layer): the part before the cut keeps the original timing, the part after is a duplicate.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Split time in seconds (default: current time indicator)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "layer_set_quality",
+      "title": "Set layer quality",
+      "description": "Set layer quality (draft/best) and per-layer motion blur sampling.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": "array",
+            "description": "Layers: 1-based indices or names.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "quality": {
+            "type": "string",
+            "description": "Quality.",
+            "enum": [
+              "draft",
+              "best"
+            ]
+          },
+          "motion_blur_samples": {
+            "type": "integer",
+            "description": "Per-layer motion blur samples (2-64)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "transform_set",
+      "title": "Set transform",
+      "description": "Set transform values on a layer in one call: position, scale (percent), rotation (degrees), opacity (percent), anchor point, orientation and per-axis X/Y/Z rotation for 3D layers. Values may be scalars or [x,y]/[x,y,z] arrays as appropriate for the property.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "position": {
+            "type": "array",
+            "description": "Position [x, y] or [x, y, z].",
+            "items": {
+              "type": "number"
+            }
+          },
+          "scale": {
+            "type": "array",
+            "description": "Scale percent [x, y] or [x, y, z] (100 = 100%).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "rotation": {
+            "type": "number",
+            "description": "2D rotation in degrees (3D: Z rotation)."
+          },
+          "x_rotation": {
+            "type": "number",
+            "description": "X rotation degrees (3D)."
+          },
+          "y_rotation": {
+            "type": "number",
+            "description": "Y rotation degrees (3D)."
+          },
+          "opacity": {
+            "type": "number",
+            "description": "Opacity percent 0-100."
+          },
+          "anchor_point": {
+            "type": "array",
+            "description": "Anchor point [x, y] or [x, y, z].",
+            "items": {
+              "type": "number"
+            }
+          },
+          "orientation": {
+            "type": "array",
+            "description": "Orientation degrees [x, y, z] (3D).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "set_keyframe": {
+            "type": "boolean",
+            "description": "Also create a keyframe at the current time for each changed property."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "prop_get",
+      "title": "Get property value",
+      "description": "Read a property's value at a time, its keyframe count, expression, unit and dimension. Path examples: 'Transform.Position', 'Opacity', 'Effects.Gaussian Blur.Blurriness', 'Source Text', 'Marker'.",
+      "domain": "layers",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path from the layer, '.'-separated (matchName or display name segments)."
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Time in seconds (default: current time)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "prop_set",
+      "title": "Set property value",
+      "description": "Set any property by path. Creates a keyframe at 'time_s' if keyframe=true (the property is animated automatically). For Source Text pass a string or {...} TextDocument-like object; for colors pass [r,g,b].",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path from the layer ('.'-separated)."
+          },
+          "value": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "array",
+              "object",
+              "null"
+            ],
+            "description": "Value to set."
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Keyframe time in seconds (default: current time)."
+          },
+          "keyframe": {
+            "type": "boolean",
+            "description": "Create a keyframe instead of setting a static value."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "value"
+        ]
+      }
+    },
+    {
+      "name": "prop_list",
+      "title": "List property tree",
+      "description": "Dump the property tree of a layer (or of a single property subtree): matchName, display name, type, dimension, animated/keyframe counts, current value. Cap depth to keep responses small.",
+      "domain": "layers",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Optional subtree root path (e.g. 'Effects' or 'Transform')."
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Maximum recursion depth (default 4)."
+          },
+          "include_values": {
+            "type": "boolean",
+            "description": "Include current values (default true)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "prop_clear",
+      "title": "Clear property",
+      "description": "Remove the expression and/or all keyframes from a property.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "remove_expression": {
+            "type": "boolean",
+            "description": "Remove the expression (default true)."
+          },
+          "remove_keyframes": {
+            "type": "boolean",
+            "description": "Remove all keyframes."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "blend_mode_set",
+      "title": "Set blend mode",
+      "description": "Set a layer's blending mode: normal, multiply, screen, overlay, add, dissolve, dancing_dissolve, darken, lighten, classic_color_burn, classic_color_dodge, color_burn, color_dodge, hard_light, soft_light, vivid_light, linear_light, pin_light, hard_mix, difference, exclusion, hue, saturation, color, luminosity, stencil_alpha, stencil_luma, silhouette_alpha, silhouette_luma, alpha_add, luminescent_premultiply.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "mode": {
+            "type": "string",
+            "description": "Blend mode name."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "mode"
+        ]
+      }
+    },
+    {
+      "name": "track_matte_set",
+      "title": "Set track matte",
+      "description": "Set the track matte of a layer: none, alpha, alpha_inverted, luma, luma_inverted. The matte is the layer DIRECTLY ABOVE the target layer.",
+      "domain": "layers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "matte": {
+            "type": "string",
+            "description": "Track matte kind.",
+            "enum": [
+              "none",
+              "alpha",
+              "alpha_inverted",
+              "luma",
+              "luma_inverted"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "matte"
+        ]
+      }
+    },
+    {
+      "name": "keyframe_set",
+      "title": "Set keyframes",
+      "description": "Create or update keyframes on a property. Pass a single time+value or parallel arrays 'times' and 'values' for multi-keyframe animation in one call. Times are seconds; values are scalars, [x,y]/[x,y,z] arrays, or [r,g,b] colors depending on the property.",
+      "domain": "keyframes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Keyframe time in seconds (single-keyframe form)."
+          },
+          "value": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "array",
+              "object",
+              "null"
+            ],
+            "description": "Keyframe value (single-keyframe form)."
+          },
+          "times": {
+            "type": "array",
+            "description": "Array of keyframe times in seconds (multi form).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "values": {
+            "type": "array",
+            "description": "Array of values, same length as times (multi form)."
+          },
+          "interpolation": {
+            "type": "string",
+            "description": "Interpolation for all created keys.",
+            "enum": [
+              "linear",
+              "bezier",
+              "hold",
+              "auto_bezier"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "keyframe_remove",
+      "title": "Remove keyframes",
+      "description": "Remove keyframes from a property by 1-based index, by time, by time range, or all of them.",
+      "domain": "keyframes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "indices": {
+            "type": "array",
+            "description": "1-based keyframe indices to remove.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Remove the keyframe nearest this time (within 1 frame)."
+          },
+          "range": {
+            "type": "array",
+            "description": "Remove keys with time inside [start, end].",
+            "items": {
+              "type": "number"
+            }
+          },
+          "remove_all": {
+            "type": "boolean",
+            "description": "Remove every keyframe."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "keyframe_list",
+      "title": "List keyframes",
+      "description": "List all keyframes of a property: index, time, value, interpolation in/out, temporal ease (speed/influence), hold flag and spatial tangents where applicable.",
+      "domain": "keyframes",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "keyframe_set_interpolation",
+      "title": "Set keyframe interpolation/easing",
+      "description": "Set interpolation type and temporal easing of existing keyframes. Interp: linear, bezier, hold, auto_bezier. Ease arrays: per-key [in_speed, in_influence, out_speed, out_influence] or a single value applied to all selected keys. Influences are percent 0.1-100.",
+      "domain": "keyframes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "indices": {
+            "type": "array",
+            "description": "1-based keyframe indices (default: all keys).",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "interpolation": {
+            "type": "string",
+            "description": "Interpolation type.",
+            "enum": [
+              "linear",
+              "bezier",
+              "hold",
+              "auto_bezier"
+            ]
+          },
+          "ease_in": {
+            "type": "array",
+            "description": "Incoming ease: [speed, influence%] per key or flat for all.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "ease_out": {
+            "type": "array",
+            "description": "Outgoing ease: [speed, influence%] per key or flat for all.",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "keyframe_set_spatial",
+      "title": "Set spatial interpolation",
+      "description": "Set spatial auto-bezier/linear/tangent behavior of keyframes on spatial properties (Position, Anchor Point, mask paths).",
+      "domain": "keyframes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "indices": {
+            "type": "array",
+            "description": "1-based keyframe indices (default: all keys).",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "spatial_auto_bezier": {
+            "type": "boolean",
+            "description": "Smooth (roving) spatial interpolation."
+          },
+          "tangent_in": {
+            "type": "array",
+            "description": "Incoming spatial tangent offset [x, y] (single key only).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "tangent_out": {
+            "type": "array",
+            "description": "Outgoing spatial tangent offset [x, y] (single key only).",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "keyframe_shift",
+      "title": "Shift keyframes",
+      "description": "Shift all keyframes of a property (or a time range of them) by a delta in seconds. Negative delta moves earlier.",
+      "domain": "keyframes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "delta_s": {
+            "type": "number",
+            "description": "Shift amount in seconds."
+          },
+          "range": {
+            "type": "array",
+            "description": "Only shift keys with time inside [start, end].",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "delta_s"
+        ]
+      }
+    },
+    {
+      "name": "expression_set",
+      "title": "Set expression",
+      "description": "Set (or replace) an expression on a property. The response reports the expression error text if AE rejected it. Set expression='' to remove.",
+      "domain": "expressions",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          },
+          "expression": {
+            "type": "string",
+            "description": "Expression source; '' removes the expression."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "expression"
+        ]
+      }
+    },
+    {
+      "name": "expression_get",
+      "title": "Get expression",
+      "description": "Read the expression source of a property and its current error text (empty string when the expression evaluates cleanly).",
+      "domain": "expressions",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "expression_remove",
+      "title": "Remove expression",
+      "description": "Remove the expression from a property.",
+      "domain": "expressions",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Property path ('.'-separated)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "expression_scan_errors",
+      "title": "Scan expression errors",
+      "description": "Scan a composition (or the whole project) for properties whose expression has errors and return the list with paths and error texts.",
+      "domain": "expressions",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: scan whole project)."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Max errors to report (default 50)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "effect_add",
+      "title": "Add effect",
+      "description": "Add an effect to a layer by matchName (e.g. 'ADBE Gaussian Blur 2') or by display name substring (e.g. 'Gaussian Blur'). Optionally set parameters right away: {'Blurriness': 25, 'Repeat Edge Pixels': true}.",
+      "domain": "effects",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "match_name": {
+            "type": "string",
+            "description": "Exact effect matchName (preferred, e.g. 'ADBE Gaussian Blur 2')."
+          },
+          "name": {
+            "type": "string",
+            "description": "Effect display name substring (used when match_name is not given)."
+          },
+          "params": {
+            "type": "object",
+            "description": "Parameters to set after adding: {name or matchName: value}.",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "index": {
+            "type": "integer",
+            "description": "Insert position in the effect stack (1-based; default: top of stack)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "effect_remove",
+      "title": "Remove effect",
+      "description": "Remove one or all effects from a layer by 1-based index or name.",
+      "domain": "effects",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "effect": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Effect 1-based index or name; omit with all=true."
+          },
+          "all": {
+            "type": "boolean",
+            "description": "Remove every effect from the layer."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "effect_list_installed",
+      "title": "List installed effects",
+      "description": "List effects available in this AE build with their matchNames and categories (from app.effects on AE 2024+; falls back to a curated common list). Filter by category or name substring.",
+      "domain": "effects",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name_contains": {
+            "type": "string",
+            "description": "Case-insensitive substring filter."
+          },
+          "category_contains": {
+            "type": "string",
+            "description": "Case-insensitive category filter."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Max rows (default 200)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "effect_get_params",
+      "title": "Get effect parameters",
+      "description": "Dump the parameter tree of an effect instance on a layer: each parameter's matchName, display name, type, dimension, value and keyframe count.",
+      "domain": "effects",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "effect": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Effect 1-based index or name (default: 1)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "effect_set_params",
+      "title": "Set effect parameters",
+      "description": "Set parameters of an effect instance in one call: {'Blurriness': 25, 'Checkbox Control': true, 'Color Control': [255,0,0]} - keys may be display names or matchNames. Values may include {'value': v, 'time_s': t, 'keyframe': true} for keyframed setting.",
+      "domain": "effects",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "effect": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Effect 1-based index or name (default: 1)."
+          },
+          "params": {
+            "type": "object",
+            "description": "Parameters to set.",
+            "properties": {},
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "params"
+        ]
+      }
+    },
+    {
+      "name": "text_set_content",
+      "title": "Set text content",
+      "description": "Replace the content of a text layer (Source Text). Supports multi-line strings.",
+      "domain": "text",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Text layer 1-based index or name (default: first selected)."
+          },
+          "text": {
+            "type": "string",
+            "description": "New text content."
+          },
+          "set_keyframe": {
+            "type": "boolean",
+            "description": "Keyframe the Source Text at the current time."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "text"
+        ]
+      }
+    },
+    {
+      "name": "text_set_style",
+      "title": "Set text style",
+      "description": "Update the style of a text layer's Source Text document: font (PostScript name), size, fill/stroke colors, stroke width, tracking, leading, justification, box text size, and baseline shift.",
+      "domain": "text",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Text layer 1-based index or name."
+          },
+          "font": {
+            "type": "string",
+            "description": "PostScript font name."
+          },
+          "font_size": {
+            "type": "number",
+            "description": "Font size in pixels."
+          },
+          "fill_color": {
+            "type": "array",
+            "description": "Fill color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "stroke_color": {
+            "type": "array",
+            "description": "Stroke color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "apply_fill": {
+            "type": "boolean",
+            "description": "Enable/disable fill."
+          },
+          "apply_stroke": {
+            "type": "boolean",
+            "description": "Enable/disable stroke."
+          },
+          "stroke_width": {
+            "type": "number",
+            "description": "Stroke width in pixels."
+          },
+          "stroke_over_fill": {
+            "type": "boolean",
+            "description": "Paint stroke over fill."
+          },
+          "tracking": {
+            "type": "number",
+            "description": "Character tracking."
+          },
+          "leading": {
+            "type": "number",
+            "description": "Line leading (0 = auto)."
+          },
+          "justification": {
+            "type": "string",
+            "description": "Paragraph justification.",
+            "enum": [
+              "left",
+              "center",
+              "right",
+              "full_justify",
+              "full_force"
+            ]
+          },
+          "baseline_shift": {
+            "type": "number",
+            "description": "Baseline shift in pixels."
+          },
+          "box_width": {
+            "type": "number",
+            "description": "Box text width (box text only)."
+          },
+          "box_height": {
+            "type": "number",
+            "description": "Box text height (box text only)."
+          },
+          "set_keyframe": {
+            "type": "boolean",
+            "description": "Keyframe Source Text at the current time after styling."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "text_list_fonts",
+      "title": "List fonts",
+      "description": "List installed fonts (family, style, PostScript name) available to AE. AE 2024+ reads app.fonts; older builds return a common curated list. Filter by family or PostScript name substring.",
+      "domain": "text",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name_contains": {
+            "type": "string",
+            "description": "Case-insensitive substring filter."
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Max rows (default 100)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "text_add_animator",
+      "title": "Add text animator",
+      "description": "Add an animator group to a text layer: animates one or more of opacity, position, rotation, scale, tracking, fill color, stroke color, blur. A range selector is added with start/end/offset (percent) which can be keyframed afterwards with keyframe_set on path '<animator>.Range Selector.Start'.",
+      "domain": "text",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Text layer 1-based index or name."
+          },
+          "properties": {
+            "type": "array",
+            "description": "Animated properties.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            },
+            "enum": [
+              "opacity",
+              "position",
+              "rotation",
+              "scale",
+              "tracking",
+              "fill_color",
+              "stroke_color",
+              "blur"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "description": "Start values for the chosen properties ({'opacity': 0, 'tracking': 50, ...}).",
+            "properties": {},
+            "additionalProperties": true
+          },
+          "animator_name": {
+            "type": "string",
+            "description": "Name of the animator group (default 'Animator 1')."
+          },
+          "range_start": {
+            "type": "number",
+            "description": "Range selector start percent (default 0)."
+          },
+          "range_end": {
+            "type": "number",
+            "description": "Range selector end percent (default 100)."
+          },
+          "range_offset": {
+            "type": "number",
+            "description": "Range selector offset percent (default 0)."
+          },
+          "shape": {
+            "type": "string",
+            "description": "Range selector shape.",
+            "enum": [
+              "square",
+              "ramp_up",
+              "ramp_down",
+              "triangle",
+              "round",
+              "smooth"
+            ],
+            "default": "square"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "properties"
+        ]
+      }
+    },
+    {
+      "name": "shape_add",
+      "title": "Add shape group",
+      "description": "Add a shape group to an existing shape layer (or create the layer if 'layer' is omitted). rect | ellipse | star | polygon with fill/stroke.",
+      "domain": "shapes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Shape layer 1-based index or name (default: first shape layer, else new layer)."
+          },
+          "shape_type": {
+            "type": "string",
+            "description": "Shape kind.",
+            "enum": [
+              "rect",
+              "ellipse",
+              "star",
+              "polygon"
+            ],
+            "default": "rect"
+          },
+          "group_name": {
+            "type": "string",
+            "description": "Group name (default 'Group N')."
+          },
+          "size": {
+            "type": "array",
+            "description": "Shape size [width, height] in pixels (default [200,200]).",
+            "items": {
+              "type": "number"
+            },
+            "default": [
+              200,
+              200
+            ]
+          },
+          "position": {
+            "type": "array",
+            "description": "Group position [x, y] within the layer (default [0,0]).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "roundness": {
+            "type": "number",
+            "description": "Rectangle corner roundness in pixels."
+          },
+          "points": {
+            "type": "integer",
+            "description": "Star/polygon point count."
+          },
+          "outer_radius": {
+            "type": "number",
+            "description": "Star/polygon outer radius."
+          },
+          "inner_radius": {
+            "type": "number",
+            "description": "Star inner radius."
+          },
+          "fill_color": {
+            "type": "array",
+            "description": "Fill color RGB 0-255 or 0-1 floats (omit to keep no fill on this group).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "fill_opacity": {
+            "type": "number",
+            "description": "Fill opacity percent 0-100."
+          },
+          "stroke_color": {
+            "type": "array",
+            "description": "Stroke color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "stroke_width": {
+            "type": "number",
+            "description": "Stroke width (0 = no stroke)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "shape_type"
+        ]
+      }
+    },
+    {
+      "name": "shape_set_fill",
+      "title": "Set shape fill",
+      "description": "Change the fill of a shape layer group (or of all groups when group is omitted): color and/or opacity. Creates the fill if the group has none.",
+      "domain": "shapes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Shape layer 1-based index or name."
+          },
+          "group": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Group 1-based index or name (default: all groups)."
+          },
+          "color": {
+            "type": "array",
+            "description": "Fill color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "opacity": {
+            "type": "number",
+            "description": "Fill opacity percent 0-100."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "shape_set_stroke",
+      "title": "Set shape stroke",
+      "description": "Change the stroke of a shape layer group (or all groups): color, width, opacity, line cap and line join. Creates the stroke if missing.",
+      "domain": "shapes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Shape layer 1-based index or name."
+          },
+          "group": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Group 1-based index or name (default: all groups)."
+          },
+          "color": {
+            "type": "array",
+            "description": "Stroke color RGB 0-255 or 0-1 floats.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "width": {
+            "type": "number",
+            "description": "Stroke width in pixels."
+          },
+          "opacity": {
+            "type": "number",
+            "description": "Stroke opacity percent 0-100."
+          },
+          "line_cap": {
+            "type": "string",
+            "description": "Line cap.",
+            "enum": [
+              "butt",
+              "round",
+              "projecting"
+            ]
+          },
+          "line_join": {
+            "type": "string",
+            "description": "Line join.",
+            "enum": [
+              "miter",
+              "round",
+              "bevel"
+            ]
+          },
+          "dashes": {
+            "type": "array",
+            "description": "Dash pattern in pixels (e.g. [20, 14]; empty = solid).",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "shape_add_modifier",
+      "title": "Add shape modifier",
+      "description": "Add a path modifier to a shape layer group or layer: trim_paths, round_corners, repeater, wiggle_paths, zig_zag, offset_paths, pucker_bloat, twist, merge_paths.",
+      "domain": "shapes",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Shape layer 1-based index or name."
+          },
+          "group": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Group 1-based index or name (default: layer level)."
+          },
+          "modifier": {
+            "type": "string",
+            "description": "Modifier kind.",
+            "enum": [
+              "trim_paths",
+              "round_corners",
+              "repeater",
+              "wiggle_paths",
+              "zig_zag",
+              "offset_paths",
+              "pucker_bloat",
+              "twist",
+              "merge_paths"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "description": "Modifier parameters, e.g. {'Start':0,'End':50,'Offset':25} for trim_paths, {'Copies':3,'Offset Position':[50,0]} for repeater.",
+            "properties": {},
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "modifier"
+        ]
+      }
+    },
+    {
+      "name": "mask_add",
+      "title": "Add mask",
+      "description": "Add a mask to a layer: rectangle/ellipse from bounds, or a custom Bezier path from vertex + in/out-tangent lists (pixels, layer coordinates).",
+      "domain": "masks",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (default: first selected)."
+          },
+          "shape_type": {
+            "type": "string",
+            "description": "Mask kind.",
+            "enum": [
+              "rect",
+              "ellipse"
+            ],
+            "default": "rect"
+          },
+          "bounds": {
+            "type": "array",
+            "description": "Bounding box [left, top, width, height] in layer coordinates.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "vertices": {
+            "type": "array",
+            "description": "Custom path: array of [x, y] vertices."
+          },
+          "in_tangents": {
+            "type": "array",
+            "description": "Array of [x, y] in-tangents (same length as vertices)."
+          },
+          "out_tangents": {
+            "type": "array",
+            "description": "Array of [x, y] out-tangents (same length as vertices)."
+          },
+          "closed": {
+            "type": "boolean",
+            "description": "Close the path (default true)."
+          },
+          "mask_mode": {
+            "type": "string",
+            "description": "Mask mode.",
+            "enum": [
+              "add",
+              "subtract",
+              "intersect",
+              "lighten",
+              "darken",
+              "difference",
+              "none"
+            ],
+            "default": "add"
+          },
+          "inverted": {
+            "type": "boolean",
+            "description": "Invert the mask."
+          },
+          "feather": {
+            "type": "array",
+            "description": "Feather [x, y] in pixels.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "opacity": {
+            "type": "number",
+            "description": "Mask opacity percent 0-100 (default 100)."
+          },
+          "expansion": {
+            "type": "number",
+            "description": "Mask expansion in pixels."
+          },
+          "mask_name": {
+            "type": "string",
+            "description": "Mask name (default 'Mask N')."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "mask_update",
+      "title": "Update mask",
+      "description": "Update an existing mask: mode, inverted, feather, opacity, expansion, bounds (regenerates the path) or vertices/tangents.",
+      "domain": "masks",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "mask": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Mask 1-based index or name (default: 1)."
+          },
+          "bounds": {
+            "type": "array",
+            "description": "New bounding box [left, top, width, height].",
+            "items": {
+              "type": "number"
+            }
+          },
+          "vertices": {
+            "type": "array",
+            "description": "New vertices [[x, y], ...]."
+          },
+          "in_tangents": {
+            "type": "array",
+            "description": "New in-tangents [[x, y], ...]."
+          },
+          "out_tangents": {
+            "type": "array",
+            "description": "New out-tangents [[x, y], ...]."
+          },
+          "mask_mode": {
+            "type": "string",
+            "description": "Mask mode.",
+            "enum": [
+              "add",
+              "subtract",
+              "intersect",
+              "lighten",
+              "darken",
+              "difference",
+              "none"
+            ]
+          },
+          "inverted": {
+            "type": "boolean",
+            "description": "Invert."
+          },
+          "feather": {
+            "type": "array",
+            "description": "Feather [x, y] in pixels.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "opacity": {
+            "type": "number",
+            "description": "Opacity percent 0-100."
+          },
+          "expansion": {
+            "type": "number",
+            "description": "Expansion in pixels."
+          },
+          "mask_name": {
+            "type": "string",
+            "description": "Rename the mask."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "mask_remove",
+      "title": "Remove mask",
+      "description": "Remove one or all masks from a layer.",
+      "domain": "masks",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "mask": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Mask 1-based index or name; omit with all=true."
+          },
+          "all": {
+            "type": "boolean",
+            "description": "Remove every mask."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "marker_add",
+      "title": "Add marker",
+      "description": "Add a comp marker or a layer marker with comment, chapter, URL, duration and cue-point name.",
+      "domain": "markers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "target": {
+            "type": "string",
+            "description": "Where to put the marker.",
+            "enum": [
+              "comp",
+              "layer"
+            ],
+            "default": "comp"
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (target=layer only)."
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Marker time in seconds (default 0)."
+          },
+          "comment": {
+            "type": "string",
+            "description": "Marker comment."
+          },
+          "chapter": {
+            "type": "string",
+            "description": "Chapter name."
+          },
+          "url": {
+            "type": "string",
+            "description": "URL."
+          },
+          "duration_s": {
+            "type": "number",
+            "description": "Marker duration in seconds."
+          },
+          "cue_point_name": {
+            "type": "string",
+            "description": "Cue point name."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "marker_list",
+      "title": "List markers",
+      "description": "List all markers of a composition (and optionally of its layers): time, duration, comment, chapter, URL, cue point.",
+      "domain": "markers",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "include_layers": {
+            "type": "boolean",
+            "description": "Also list layer markers (default false)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "marker_remove",
+      "title": "Remove marker",
+      "description": "Remove markers by 1-based index, by time (within half a frame) or by comment match - from a comp or a layer.",
+      "domain": "markers",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "target": {
+            "type": "string",
+            "description": "Where to remove from.",
+            "enum": [
+              "comp",
+              "layer"
+            ],
+            "default": "comp"
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name (target=layer only)."
+          },
+          "indices": {
+            "type": "array",
+            "description": "1-based marker indices.",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "time_s": {
+            "type": "number",
+            "description": "Remove the marker nearest this time."
+          },
+          "comment_contains": {
+            "type": "string",
+            "description": "Remove every marker whose comment contains this substring."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "time_remap_enable",
+      "title": "Enable time remap",
+      "description": "Enable Time Remapping on a footage/video layer, optionally seeding it with two keyframes (full duration linear) or an expression.",
+      "domain": "time",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "seed_keyframes": {
+            "type": "boolean",
+            "description": "Add a 2-keyframe linear map over the layer (default true)."
+          },
+          "expression": {
+            "type": "string",
+            "description": "Expression to set on Time Remap instead of keyframes."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "time_stretch",
+      "title": "Stretch layer time",
+      "description": "Change the playback speed of a layer: pass stretch_percent (100 = normal speed, 50 = twice as fast, 200 = half speed) and optionally a new in_point; the out point follows automatically.",
+      "domain": "time",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "layer": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Layer 1-based index or name."
+          },
+          "stretch_percent": {
+            "type": "number",
+            "description": "Stretch percent (default 100)."
+          },
+          "new_in_point": {
+            "type": "number",
+            "description": "Where the layer starts after stretching (seconds)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "render_queue_add",
+      "title": "Add comp to render queue",
+      "description": "Add a composition to the Render Queue with an output file. 'format' picks an installed Output Module template by format ('PNG', 'ProRes', 'H264', 'Lossless'...) or set 'output_template' to use it verbatim.",
+      "domain": "render",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Absolute output file path (extension sets the container)."
+          },
+          "output_template": {
+            "type": "string",
+            "description": "Exact Output Module template name."
+          },
+          "format": {
+            "type": "string",
+            "description": "Preferred format family for template lookup.",
+            "enum": [
+              "png",
+              "exr",
+              "jpg",
+              "tiff",
+              "prores",
+              "h264",
+              "lossless"
+            ]
+          },
+          "start_time_s": {
+            "type": "number",
+            "description": "Override render start (seconds)."
+          },
+          "end_time_s": {
+            "type": "number",
+            "description": "Override render end (seconds)."
+          },
+          "sound": {
+            "type": "boolean",
+            "description": "Render audio."
+          },
+          "start_render": {
+            "type": "boolean",
+            "description": "Immediately queue + start rendering (default false)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "output_path"
+        ]
+      }
+    },
+    {
+      "name": "render_queue_list",
+      "title": "List render queue",
+      "description": "List render queue items with status, comp, elapsed time and output paths.",
+      "domain": "render",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "render_queue_control",
+      "title": "Control render queue",
+      "description": "Start/pause/stop the render queue, or remove items by index.",
+      "domain": "render",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "What to do.",
+            "enum": [
+              "start",
+              "pause",
+              "stop",
+              "remove_item"
+            ]
+          },
+          "item_index": {
+            "type": "integer",
+            "description": "Queue item index (1-based) for remove_item."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "action"
+        ]
+      }
+    },
+    {
+      "name": "render_start",
+      "title": "Render now",
+      "description": "Queue a comp with output settings and render it to completion (blocking; the MCP call returns when the render finishes, with per-item status and timing). This is the main 'export a file' tool.",
+      "domain": "render",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Absolute output file path."
+          },
+          "output_template": {
+            "type": "string",
+            "description": "Exact Output Module template name."
+          },
+          "format": {
+            "type": "string",
+            "description": "Preferred format family for template lookup.",
+            "enum": [
+              "png",
+              "exr",
+              "jpg",
+              "tiff",
+              "prores",
+              "h264",
+              "lossless"
+            ]
+          },
+          "start_time_s": {
+            "type": "number",
+            "description": "Override render start (seconds)."
+          },
+          "end_time_s": {
+            "type": "number",
+            "description": "Override render end (seconds)."
+          },
+          "sound": {
+            "type": "boolean",
+            "description": "Render audio."
+          },
+          "timeout_s": {
+            "type": "number",
+            "description": "Render timeout in seconds (default 1800)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "output_path"
+        ]
+      }
+    },
+    {
+      "name": "frame_render",
+      "title": "Render preview frame",
+      "description": "Render one or more frames of a composition to PNG for quick visual verification (uses comp.saveFrameToPng; AE 2023+). Returns absolute file paths the agent can open/read.",
+      "domain": "render",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp id or name (default: active comp)."
+          },
+          "times_s": {
+            "type": "array",
+            "description": "Frame times in seconds (default: [current time]).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "output_dir": {
+            "type": "string",
+            "description": "Directory for PNGs (default: <runtime>/previews)."
+          },
+          "scale_percent": {
+            "type": "number",
+            "description": "Reserved for future use; frames render at comp size."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "aerender_render",
+      "title": "Render via aerender",
+      "description": "Render a project/comp headlessly with aerender.exe (runs OUTSIDE the open AE instance as a subprocess, so it works even while the user keeps editing). Returns the aerender exit code, stdout tail and output paths.",
+      "domain": "render",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "project_path": {
+            "type": "string",
+            "description": "Absolute .aep path (default: the open project file, saved first)."
+          },
+          "comp": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Comp name or index inside the project ('-comp')."
+          },
+          "output_path": {
+            "type": "string",
+            "description": "Output file path pattern ('-output')."
+          },
+          "output_template": {
+            "type": "string",
+            "description": "Output module template ('-OMtemplate')."
+          },
+          "render_settings_template": {
+            "type": "string",
+            "description": "Render settings template ('-RStemplate')."
+          },
+          "start_frame": {
+            "type": "integer",
+            "description": "First frame number."
+          },
+          "end_frame": {
+            "type": "integer",
+            "description": "Last frame number."
+          },
+          "timeout_s": {
+            "type": "number",
+            "description": "Kill aerender after this many seconds (default 3600)."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "footage_info",
+      "title": "Footage details",
+      "description": "Details of a footage item: path, dimensions, fps, duration (or still flag), alpha interpretation, audio/video presence, usage count across comps.",
+      "domain": "footage",
+      "mutating": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Footage item id or name."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item"
+        ]
+      }
+    },
+    {
+      "name": "footage_replace",
+      "title": "Replace footage",
+      "description": "Point a footage item at a different file (relink/swap source) - all layers using it update automatically.",
+      "domain": "footage",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Footage item id or name."
+          },
+          "path": {
+            "type": "string",
+            "description": "Absolute path of the new file."
+          },
+          "sequence": {
+            "type": "boolean",
+            "description": "Treat the new file as an image sequence."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item",
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "footage_reload",
+      "title": "Reload footage",
+      "description": "Reload a footage item from disk (after the file changed on disk).",
+      "domain": "footage",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Footage item id or name."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item"
+        ]
+      }
+    },
+    {
+      "name": "footage_interpret",
+      "title": "Interpret footage",
+      "description": "Set interpretation of a footage item: conform frame rate, loop count, alpha mode and premultiplied color, field order, and 'guess' presets.",
+      "domain": "footage",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": [
+              "string",
+              "number"
+            ],
+            "description": "Footage item id or name."
+          },
+          "conform_fps": {
+            "type": "number",
+            "description": "Conform frame rate (0 = keep)."
+          },
+          "loops": {
+            "type": "integer",
+            "description": "Loop count (0 = keep)."
+          },
+          "alpha_mode": {
+            "type": "string",
+            "description": "Alpha interpretation.",
+            "enum": [
+              "ignore",
+              "straight",
+              "premultiplied",
+              "guess"
+            ]
+          },
+          "premultiplied_color": {
+            "type": "array",
+            "description": "Matte color RGB 0-255 or 0-1 floats (premultiplied mode).",
+            "items": {
+              "type": "number"
+            }
+          },
+          "field_order": {
+            "type": "string",
+            "description": "Separate fields order.",
+            "enum": [
+              "off",
+              "upper_first",
+              "lower_first"
+            ]
+          },
+          "guess_frame_rate": {
+            "type": "boolean",
+            "description": "Try 'Guess' frame rate before applying conform_fps."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "item"
+        ]
+      }
+    },
+    {
+      "name": "layers_batch",
+      "title": "Batch operations (one undo group)",
+      "description": "Execute several tool calls in ONE round-trip and ONE undo group - far faster than N separate calls. Each entry: {'tool': '<tool name>', 'args': {...}}. Every entry runs; per-entry ok/error is returned. Use for building whole scenes (add 10 layers, keyframe 5 properties, ...).",
+      "domain": "batch",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "operations": {
+            "type": "array",
+            "description": "List of {'tool', 'args'} entries.",
+            "items": {
+              "type": "object",
+              "description": "Operation entry.",
+              "properties": {
+                "tool": {
+                  "type": "string",
+                  "description": "Tool name."
+                },
+                "args": {
+                  "type": "object",
+                  "description": "Tool arguments.",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true,
+              "required": [
+                "tool"
+              ]
+            }
+          },
+          "continue_on_error": {
+            "type": "boolean",
+            "description": "Keep running after a failed entry (default true)."
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "operations"
+        ]
+      }
+    },
+    {
+      "name": "undo",
+      "title": "Undo last operation",
+      "description": "Trigger AE's Undo command (Edit > Undo). Note: each bridge tool call is already one undo group, so this undoes the last tool call as a whole.",
+      "domain": "batch",
+      "mutating": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    }
+  ]
+}

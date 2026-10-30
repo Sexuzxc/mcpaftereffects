@@ -1,0 +1,22 @@
+{
+  "name": "ae-mcp-server-ts",
+  "version": "1.0.0",
+  "description": "After Effects MCP server (TypeScript edition) - lets AI agents drive Adobe After Effects through a resident ExtendScript bridge",
+  "type": "module",
+  "bin": { "ae-mcp": "dist/index.js" },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "node test/smoke.mjs"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^22.0.0"
+  },
+  "license": "MIT"
+}
